@@ -1,9 +1,11 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
+from app.core.rate_limit import client_ip, rate_limiter
 from app.core.security import (
     create_access_token,
     generate_refresh_token,
@@ -15,7 +17,7 @@ from app.core.security import (
 from app.db.session import get_db
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
-from app.schemas.auth import LoginRequest, RefreshRequest, TokenResponse
+from app.schemas.auth import LoginRequest, LogoutRequest, RefreshRequest, TokenResponse
 from app.schemas.user import UserCreate, UserResponse
 
 
@@ -27,7 +29,17 @@ router = APIRouter(prefix="/auth", tags=["auth"])
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def register(payload: UserCreate, db: Session = Depends(get_db)):
+def register(
+    payload: UserCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    rate_limiter.check(
+        key=f"register:{client_ip(request)}",
+        limit=settings.register_rate_limit,
+        window_seconds=settings.rate_limit_window_seconds,
+    )
+
     email = payload.email.lower()
     existing_user = db.scalar(select(User).where(User.email == email))
     if existing_user:
@@ -64,7 +76,17 @@ def issue_token_pair(user: User, db: Session) -> TokenResponse:
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
+def login(
+    payload: LoginRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    rate_limiter.check(
+        key=f"login:{client_ip(request)}:{payload.email.lower()}",
+        limit=settings.login_rate_limit,
+        window_seconds=settings.rate_limit_window_seconds,
+    )
+
     user = db.scalar(select(User).where(User.email == payload.email.lower()))
 
     if not user or not verify_password(payload.password, user.password_hash):
@@ -116,3 +138,17 @@ def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
     saved_token.revoked_at = now
     db.commit()
     return issue_token_pair(user, db)
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(payload: LogoutRequest, db: Session = Depends(get_db)):
+    token_hash = hash_refresh_token(payload.refresh_token)
+    saved_token = db.scalar(
+        select(RefreshToken).where(RefreshToken.token_hash == token_hash)
+    )
+
+    if saved_token and not saved_token.revoked_at:
+        saved_token.revoked_at = datetime.now(timezone.utc)
+        db.commit()
+
+    return None
