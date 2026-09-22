@@ -1,29 +1,32 @@
-import os
+def register_user(client, email="arthur@example.com"):
+    return client.post(
+        "/auth/register",
+        json={
+            "name": "Arthur",
+            "email": email,
+            "password": "senha123",
+        },
+    )
 
-os.environ["DATABASE_URL"] = "sqlite+pysqlite:///./test_auth.db"
-os.environ["JWT_SECRET"] = "test-secret"
 
-from fastapi.testclient import TestClient
-from app.db.base import Base
-from app.db.session import engine
-from app.main import app
+def login_user(client, email="arthur@example.com", password="senha123"):
+    return client.post(
+        "/auth/login",
+        json={
+            "email": email,
+            "password": password,
+        },
+    )
 
-Base.metadata.drop_all(bind=engine)
-Base.metadata.create_all(bind=engine)
-client = TestClient(app)
 
-def test_register_login_me_and_refresh():
-    register = client.post("/auth/register", json={
-        "name": "Arthur",
-        "email": "arthur@example.com",
-        "password": "senha123",
-    })
+def test_register_login_me_refresh_and_logout(client):
+    register = register_user(client)
     assert register.status_code == 201
+    assert register.json()["email"] == "arthur@example.com"
+    assert "password" not in register.json()
+    assert "password_hash" not in register.json()
 
-    login = client.post("/auth/login", json={
-        "email": "arthur@example.com",
-        "password": "senha123",
-    })
+    login = login_user(client)
     assert login.status_code == 200
     tokens = login.json()
 
@@ -48,17 +51,48 @@ def test_register_login_me_and_refresh():
     )
     assert reused.status_code == 401
 
-def test_duplicate_email_returns_conflict():
-    response = client.post("/auth/register", json={
-        "name": "Arthur Dois",
-        "email": "arthur@example.com",
-        "password": "outrasenha123",
-    })
+    logout = client.post(
+        "/auth/logout",
+        json={"refresh_token": rotated["refresh_token"]},
+    )
+    assert logout.status_code == 204
+
+    after_logout = client.post(
+        "/auth/refresh",
+        json={"refresh_token": rotated["refresh_token"]},
+    )
+    assert after_logout.status_code == 401
+
+
+def test_duplicate_email_returns_conflict(client):
+    assert register_user(client).status_code == 201
+
+    response = register_user(client)
+
     assert response.status_code == 409
 
-def test_invalid_login_returns_401():
-    response = client.post("/auth/login", json={
-        "email": "arthur@example.com",
-        "password": "senhaerrada",
-    })
+
+def test_invalid_login_returns_401(client):
+    assert register_user(client).status_code == 201
+
+    response = login_user(client, password="senhaerrada")
+
     assert response.status_code == 401
+
+
+def test_protected_endpoint_rejects_missing_token(client):
+    response = client.get("/users/me")
+
+    assert response.status_code in (401, 403)
+
+
+def test_login_rate_limit_returns_429(client):
+    assert register_user(client).status_code == 201
+
+    for _ in range(5):
+        response = login_user(client, password="errada123")
+        assert response.status_code == 401
+
+    blocked = login_user(client, password="errada123")
+    assert blocked.status_code == 429
+    assert blocked.headers["retry-after"]
