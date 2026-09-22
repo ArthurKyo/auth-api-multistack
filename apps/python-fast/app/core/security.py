@@ -50,5 +50,7 @@ def hash_refresh_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
-def refresh_expiration(days: int = 7) -> datetime:
-    return datetime.now(timezone.utc) + timedelta(days=days)
+def refresh_expiration() -> datetime:
+    return datetime.now(timezone.utc) + timedelta(
+        days=settings.refresh_token_expire_days
+    )
