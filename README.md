@@ -28,6 +28,7 @@ Mesma ideia de autenticação implementada em diferentes stacks de back-end. A p
 | GET | `/users/admin-only` | JWT + role admin |
 | GET | `/users/admin` | JWT + admin + paginação |
 | POST | `/auth/refresh` | Refresh token com rotação |
+| POST | `/auth/logout` | Revoga refresh token |
 
 O FastAPI também disponibiliza documentação interativa automaticamente em `/docs`.
 
@@ -128,8 +129,12 @@ para acessar `GET /users/me`.
 - Validação automática com Pydantic
 - Códigos HTTP adequados para conflito, autenticação e autorização
 - Configuração via variáveis de ambiente
-- Testes automatizados
-- CI com GitHub Actions
+- Testes automatizados com banco isolado em memória
+- Rate limiting de login e cadastro
+- Logout e revogação de refresh token
+- Request ID, logs e headers de segurança
+- Tratamento centralizado de erros
+- CI configurado com GitHub Actions + Ruff + Pytest
 - Containerização com Docker
 
 ## Roadmap
@@ -145,7 +150,7 @@ para acessar `GET /users/me`.
 - [x] Alembic migrations
 - [x] Refresh token com rotação
 - [x] Testes de integração de auth
-- [ ] Rate limiting
+- [x] Rate limiting
 - [x] Paginação e endpoint administrativo de usuários
 
 ### Outras implementações
@@ -157,5 +162,10 @@ para acessar `GET /users/me`.
 Frameworks mudam, mas os fundamentos de back-end permanecem: modelagem de dados, regras de negócio, autenticação, autorização, HTTP, testes e segurança. Este repositório será usado para implementar o mesmo domínio em stacks diferentes e comparar as decisões de cada ecossistema.
 
 ---
+
+Documentação adicional:
+
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — decisões e fluxo da aplicação
+- [`SECURITY.md`](SECURITY.md) — controles implementados e limitações de produção
 
 Projeto em evolução para estudo e portfólio de desenvolvimento back-end.
