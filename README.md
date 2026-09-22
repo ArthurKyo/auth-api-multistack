@@ -13,6 +13,7 @@ Mesma ideia de autenticação implementada em diferentes stacks de back-end. A p
 - PyJWT
 - bcrypt / Passlib
 - Pytest
+- Alembic
 - Docker Compose
 - GitHub Actions
 
@@ -25,6 +26,8 @@ Mesma ideia de autenticação implementada em diferentes stacks de back-end. A p
 | POST | `/auth/login` | Público |
 | GET | `/users/me` | JWT |
 | GET | `/users/admin-only` | JWT + role admin |
+| GET | `/users/admin` | JWT + admin + paginação |
+| POST | `/auth/refresh` | Refresh token com rotação |
 
 O FastAPI também disponibiliza documentação interativa automaticamente em `/docs`.
 
@@ -68,7 +71,7 @@ Crie o arquivo de ambiente:
 cp .env.example .env
 ```
 
-Suba API + PostgreSQL:
+Suba API + PostgreSQL. O container da API executa `alembic upgrade head` antes de iniciar:
 
 ```bash
 docker compose up --build
@@ -139,11 +142,11 @@ para acessar `GET /users/me`.
 - [x] Docker Compose
 - [x] Pytest
 - [x] GitHub Actions
-- [ ] Alembic migrations
-- [ ] Refresh token com rotação
-- [ ] Testes de integração de auth
+- [x] Alembic migrations
+- [x] Refresh token com rotação
+- [x] Testes de integração de auth
 - [ ] Rate limiting
-- [ ] Paginação e endpoint administrativo de usuários
+- [x] Paginação e endpoint administrativo de usuários
 
 ### Outras implementações
 - [ ] Java + Spring Boot
