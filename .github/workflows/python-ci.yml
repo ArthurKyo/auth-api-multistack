@@ -2,37 +2,38 @@ name: Python API CI
 
 on:
   push:
-    paths:
-      - "apps/python-fast/**"
-      - ".github/workflows/python-ci.yml"
+    branches: ["main"]
   pull_request:
-    paths:
-      - "apps/python-fast/**"
 
 jobs:
   quality:
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: apps/python-fast
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+      - name: Install
+        run: |
+          cd apps/python-fast
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
       - name: Lint
-        run: ruff check app tests
+        run: |
+          cd apps/python-fast
+          ruff check app tests
 
-      - name: Tests
-        run: pytest -q
+      - name: Test
         env:
           ENVIRONMENT: test
           DATABASE_URL: sqlite+pysqlite:///:memory:
           JWT_SECRET: ci-test-secret
+        run: |
+          cd apps/python-fast
+          pytest -q
