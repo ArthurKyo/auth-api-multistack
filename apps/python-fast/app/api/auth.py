@@ -96,7 +96,11 @@ def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
         )
 
     now = datetime.now(timezone.utc)
-    if saved_token.revoked_at or saved_token.expires_at <= now:
+    expires_at = saved_token.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+    if saved_token.revoked_at or expires_at <= now:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Expired or revoked refresh token",
